@@ -8,6 +8,7 @@ detected yet.
 """
 
 from datetime import date, timedelta
+from dataclasses import dataclass
 
 FREQUENCY_DAYS = {"daily": 1, "weekly": 7}
 
@@ -22,9 +23,11 @@ class PlainSession:
         return f"PlainSession(subject={self.subject!r}, minutes={self.minutes}, priority={self.priority!r})"
 
 
-# TODO (Part 3): from dataclasses import dataclass, then define SessionDC as
-# a @dataclass with the same three fields as PlainSession: subject, minutes,
-# priority="medium".
+@dataclass
+class SessionDC:
+    subject: str
+    minutes: int
+    priority: str = "medium"
 
 
 def next_occurrence(last_date: date, frequency: str) -> date:
@@ -34,7 +37,12 @@ def next_occurrence(last_date: date, frequency: str) -> date:
     """
     # TODO (Part 4): look up the day count for `frequency` in FREQUENCY_DAYS
     # and add that many days to last_date using timedelta.
-    raise NotImplementedError
+    if frequency not in FREQUENCY_DAYS:
+        raise ValueError(f"Invalid frequency: {frequency}. Must be 'daily' or 'weekly'.")
+
+    days_to_add = FREQUENCY_DAYS[frequency]
+    
+    return last_date + timedelta(days=days_to_add)
 
 
 def find_conflicts(sessions: list) -> list:
@@ -46,8 +54,17 @@ def find_conflicts(sessions: list) -> list:
     """
     # TODO (Part 4): implement without crashing on empty input. A simple
     # nested loop comparing each pair once is fine.
-    raise NotImplementedError
+    if not sessions:
+        return []
 
+    pairs = []
+    for i in range(len(sessions)):
+        for j in range(i + 1, len(sessions)):
+            if sessions[i]["slot"] == sessions[j]["slot"]:
+                pairs.append((sessions[i], sessions[j]))
+
+    return pairs
+    
 
 def render_session_log_tab():
     import streamlit as st
@@ -60,11 +77,13 @@ def render_session_log_tab():
         count += 1
     st.metric("Sessions logged (broken)", count)
 
-    # TODO (Part 1): initialize st.session_state.fixed_count once, then
-    # increment it here instead of the broken counter above.
+    # session_state persists across reruns; the guard initializes it only once.
+    if "fixed_count" not in st.session_state:
+        st.session_state.fixed_count = 0
+
     if st.button("Log a session (fixed)"):
-        pass
-    st.metric("Sessions logged (fixed)", 0)  # TODO: display st.session_state.fixed_count.
+        st.session_state.fixed_count += 1
+    st.metric("Sessions logged (fixed)", st.session_state.fixed_count)
 
     st.divider()
     st.subheader("Part 2: Session List (with validation)")
@@ -76,9 +95,12 @@ def render_session_log_tab():
     duration = st.number_input("Duration (minutes)", value=30, step=1)
 
     if st.button("Add session"):
-        # TODO (Part 2): reject an empty/whitespace-only subject and a
-        # duration that isn't > 0. Show st.error(...) instead of appending.
-        st.session_state.mini_sessions.append({"subject": subject, "duration": duration})
+        if not subject.strip():
+            st.error("Subject can't be empty.")
+        elif duration <= 0:
+            st.error("Duration must be greater than 0.")
+        else:
+            st.session_state.mini_sessions.append({"subject": subject.strip(), "duration": duration})
 
     st.write(st.session_state.mini_sessions)
 
@@ -100,8 +122,8 @@ def render_session_log_tab():
 if __name__ == "__main__":
     plain = PlainSession("Study group: Calc II", 45, priority="high")
     print(plain)
-    # TODO (Part 3): create a SessionDC with the same values and print it too --
-    # compare the two __repr__ outputs and the amount of code each required.
+    dc = SessionDC("Study group: Calc II", 45, priority="high")
+    print(dc)
 
     print(next_occurrence(date(2026, 1, 1), "daily"))
     print(next_occurrence(date(2026, 1, 1), "weekly"))
